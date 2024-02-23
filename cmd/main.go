@@ -14,9 +14,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	tx := store.New(db)
-
-	h := api.NewHandler(tx)
+	h := api.NewHandler(db)
 
 	r.Route("api/v1", func(r chi.Router) {
 		r.Post("/shorten", h.Shorten)

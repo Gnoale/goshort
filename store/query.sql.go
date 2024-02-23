@@ -3,28 +3,31 @@
 //   sqlc v1.25.0
 // source: query.sql
 
-package goshort
+package store
 
 import (
 	"context"
 )
 
 const getURL = `-- name: GetURL :one
-SELECT id FROM urls WHERE url = ?
+SELECT url FROM urls WHERE id = ?
 `
 
-func (q *Queries) GetURL(ctx context.Context, url string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getURL, url)
+func (q *Queries) GetURL(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getURL, id)
+	var url string
+	err := row.Scan(&url)
+	return url, err
+}
+
+const insertURL = `-- name: InsertURL :one
+INSERT INTO urls (url) VALUES (?)
+RETURNING id
+`
+
+func (q *Queries) InsertURL(ctx context.Context, url string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, insertURL, url)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
-}
-
-const insertURL = `-- name: InsertURL :exec
-INSERT INTO urls (url) VALUES (?)
-`
-
-func (q *Queries) InsertURL(ctx context.Context, url string) error {
-	_, err := q.db.ExecContext(ctx, insertURL, url)
-	return err
 }

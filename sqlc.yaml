@@ -1,9 +1,9 @@
 version: "2"
 sql:
   - engine: "sqlite"
-    queries: "query.sql"
-    schema: "schema.sql"
+    queries: "store/query.sql"
+    schema: "store/schema.sql"
     gen:
       go:
-        package: "goshort"
+        package: "store"
         out: "store"

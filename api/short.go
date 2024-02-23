@@ -1,9 +1,12 @@
 package api
 
+import (
+	"strings"
+)
+
 type shortBody struct {
 	LongURL string `json:"long_url"`
 }
-
 
 /*
 	Shortener logic
@@ -31,23 +34,54 @@ type shortBody struct {
 
 */
 
+var base = []rune("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYSabcdefghijklmnopqrstuvwxyz")
 
-
-func shorten(id int) (string, error) {
-	
-	/* a goode idea for the shortener is to generate an unique ID associated to the URL (from the DB)
-	
-		And then return this ID encoded in another base like base62 to get a shorten version of it
-
-		The downside is the slug size will grow constantly as new URL will be encoded
-		(base62 is shorter than base64)
-	*/
-
-	
-
-	return " ",  nil 
-
+// encode takes an id from the database
+// and encode it to a base62 string
+// we assume an higher bound of 7 characters max which is 62^7 = 3.52e+12 ids
+func encode(id int64) string {
+	res := id
+	encoded := make([]rune, 7)
+	i := 6
+	for res > 0 {
+		encoded[i] = base[res%62]
+		res /= 62
+		i--
+	}
+	i++
+	var b strings.Builder
+	for i < 7 {
+		_, err := b.WriteRune(encoded[i])
+		if err != nil {
+			panic(err)
+		}
+		i++
+	}
+	return b.String()
 }
 
+func decode(slug string) int64 {
+	var id int64
+	j := 0
+	for i := len(slug) - 1; i >= 0; i-- {
+		for n := 0; n < len(base); n++ {
+			if base[n] == rune(slug[i]) {
+				id += int64(n * pow(62, j))
+				break
+			}
+		}
+		j++
+	}
+	return id
+}
 
-func 
+func pow(n, e int) int {
+	if e == 0 {
+		return 1
+	}
+	r := n
+	for i := 1; i < e; i++ {
+		r *= n
+	}
+	return r
+}
