@@ -67,14 +67,53 @@ func TestSlug(t *testing.T) {
 //	}
 //}
 
+var encodingTest = []struct {
+	id       int64
+	expected string
+}{
+	{
+		9,
+		"9",
+	},
+	{
+		1987,
+		"W3",
+	},
+	{
+		11157,
+		"2tx",
+	},
+}
+
+var decodingTest = []struct {
+	slug     string
+	expected int64
+}{
+	{
+		"2tx",
+		11157,
+	},
+	{
+		"W3",
+		1987,
+	},
+	{
+		"8",
+		8,
+	},
+}
+
 func TestEncodeDecode(t *testing.T) {
 
-	assert.Equal(t, "9", encode(9))
-	assert.Equal(t, "W3", encode(1987))
-	assert.Equal(t, "2tx", encode(11157))
+	for _, test := range encodingTest {
+		v, err := encode(test.id)
+		assert.NoError(t, err)
+		assert.Equal(t, test.expected, v)
+	}
 
-	assert.Equal(t, int64(11157), decode("2tx"))
-	assert.Equal(t, int64(8), decode("8"))
-	assert.Equal(t, int64(1987), decode("W3"))
-
+	for _, test := range decodingTest {
+		v, err := decode(test.slug)
+		assert.NoError(t, err)
+		assert.Equal(t, test.expected, v)
+	}
 }

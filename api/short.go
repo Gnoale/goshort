@@ -1,6 +1,9 @@
 package api
 
 import (
+	"errors"
+	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -8,38 +11,20 @@ type shortBody struct {
 	LongURL string `json:"long_url"`
 }
 
-/*
-	Shortener logic
+const baseStr = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYSabcdefghijklmnopqrstuvwxyz"
 
-	We receive https://medium.com/equify-tech/the-three-fundamental-stages-of-an-engineering-career-54dac732fc74
-
-	1- convert this with a hash function so each url.String() is mapped with a short hash value
-
-	2- store the mapping in the database
-
-	3- return the shorten URL
-
-
-	Redirect logic
-
-	We receive https://<my-domain>/<slug>
-
-	1- inspect the database for such a slug value
-
-		if found, return the associated url value and send an http 301 response with the url in location
-
-		if not found return 404
-
-
-
-*/
-
-var base = []rune("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYSabcdefghijklmnopqrstuvwxyz")
+var (
+	check = regexp.MustCompile(baseStr)
+	base  = []rune(baseStr)
+)
 
 // encode takes an id from the database
 // and encode it to a base62 string
 // we assume an higher bound of 7 characters max which is 62^7 = 3.52e+12 ids
-func encode(id int64) string {
+func encode(id int64) (string, error) {
+	if id > int64(pow(62, 7)) {
+		return "", errors.New("id overflow")
+	}
 	res := id
 	encoded := make([]rune, 7)
 	i := 6
@@ -53,14 +38,18 @@ func encode(id int64) string {
 	for i < 7 {
 		_, err := b.WriteRune(encoded[i])
 		if err != nil {
-			panic(err)
+			return "", err
 		}
 		i++
 	}
-	return b.String()
+	return b.String(), nil
 }
 
-func decode(slug string) int64 {
+// decode does the opposite of encode, it returns the base10 representation of the input string encoded in base62
+func decode(slug string) (int64, error) {
+	if len(slug) > 7 {
+		return 0, errors.New("overflow: slug must be <= 7 character")
+	}
 	var id int64
 	j := 0
 	for i := len(slug) - 1; i >= 0; i-- {
@@ -69,10 +58,14 @@ func decode(slug string) int64 {
 				id += int64(n * pow(62, j))
 				break
 			}
+			// if the character was not found in our base62 character list
+			if n == len(base) {
+				return id, fmt.Errorf("invalid character %s in the slug", string(slug[i]))
+			}
 		}
 		j++
 	}
-	return id
+	return id, nil
 }
 
 func pow(n, e int) int {
