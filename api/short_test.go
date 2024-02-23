@@ -50,7 +50,7 @@ func TestSlug(t *testing.T) {
 	for url := range urlToID {
 		w := httptest.NewRecorder()
 		b := strings.NewReader(fmt.Sprintf("{\"long_url\":\"%s\"}", url))
-		req := httptest.NewRequest("POST", "http://example.com/foo", b)
+		req := httptest.NewRequest("POST", "http://127.0.0.1:8000/foo", b)
 		h.Shorten(w, req)
 		resp := w.Result()
 		body, _ := io.ReadAll(resp.Body)
@@ -74,15 +74,12 @@ var testRedirect = []struct {
 }
 
 func TestRedirect(t *testing.T) {
-
 	h := handler{&mr}
-
 	for _, test := range testRedirect {
-
 		rc := chi.NewRouteContext()
 		rc.URLParams.Add("slug", test.slug)
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "http://example.com/foo", nil)
+		req := httptest.NewRequest("GET", "http://example/foo", nil)
 		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rc))
 		h.Slug(w, req)
 		resp := w.Result()
@@ -134,13 +131,11 @@ var decodingTest = []struct {
 }
 
 func TestEncodeDecode(t *testing.T) {
-
 	for _, test := range encodingTest {
 		v, err := encode(test.id)
 		assert.NoError(t, err)
 		assert.Equal(t, test.expected, v)
 	}
-
 	for _, test := range decodingTest {
 		v, err := decode(test.slug)
 		assert.NoError(t, err)

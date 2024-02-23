@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/go-chi/chi/v5"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type handler struct {
@@ -27,16 +28,15 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// validate our url
-	_, err := url.Parse(body.LongURL)
+	_, err := url.ParseRequestURI(body.LongURL)
 	if err != nil {
 		w.Write([]byte("invalid URl"))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	// insert in DB
-	ctx := r.Context()
 	// unique constraint on the url column
-	id, err := h.q.CreateURL(ctx, body.LongURL)
+	id, err := h.q.CreateURL(r.Context(), body.LongURL)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			w.WriteHeader(http.StatusConflict)
@@ -56,10 +56,10 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 	slugUrl := url.URL{
 		Scheme: r.URL.Scheme,
 		Host:   r.URL.Host,
-		Path:   slug,
+		Path:   "api/v1/" + slug,
 	}
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(slugUrl.String()))
+	w.Write([]byte(slugUrl.String() + "\n"))
 }
 
 // Slug return and HTTP 301 redirect upon succerssfull slug retrieval from the database to a complete URl

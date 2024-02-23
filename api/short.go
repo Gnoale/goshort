@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 )
 
@@ -14,8 +13,8 @@ type shortBody struct {
 const baseStr = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYSabcdefghijklmnopqrstuvwxyz"
 
 var (
-	check = regexp.MustCompile(baseStr)
-	base  = []rune(baseStr)
+	//check = regexp.MustCompile(baseStr) // TODO
+	base = []rune(baseStr)
 )
 
 // encode takes an id from the database
