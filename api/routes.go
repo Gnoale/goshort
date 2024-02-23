@@ -3,11 +3,12 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"goshort/store"
 	"net/http"
 	"net/url"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 type handler struct {
@@ -35,11 +36,14 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 	// insert in DB
 	ctx := r.Context()
 	// unique constraint on the url column
-	// TODO: manage the error and if the value already exist return http 409 duplicate
 	id, err := h.q.CreateURL(ctx, body.LongURL)
 	if err != nil {
-		w.Write([]byte(err.Error()))
-		w.WriteHeader(http.StatusInternalServerError)
+		if errors.Is(err, sql.ErrNoRows) {
+			w.WriteHeader(http.StatusConflict)
+		} else {
+			w.Write([]byte(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 		return
 	}
 	// encode the slug from our database ID
@@ -63,17 +67,21 @@ func (h *handler) Slug(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	id, err := decode(slug)
 	if err != nil {
-		w.Write([]byte(err))
+		w.Write([]byte(err.Error()))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	url, err := h.db.GetURL(r.Context(), id)
+	// fetch the original url from database
+	url, err := h.q.GetURL(r.Context(), id)
 	if err != nil {
-		// TODO handle  not found...
-		w.Write([]byte(err))
-		w.WriteHeader(http.StatusInternalServerError)
+		if errors.Is(err, sql.ErrNoRows) {
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			w.Write([]byte(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 		return
 	}
-
+	w.Header().Add("location", url)
+	w.WriteHeader(http.StatusMovedPermanently)
 }

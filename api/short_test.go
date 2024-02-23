@@ -2,70 +2,96 @@ package api
 
 import (
 	"context"
-	"errors"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 )
 
-var sample = map[string]int64{
+var urlToID = map[string]int64{
 	"https://medium.com/equify-tech/the-three-fundamental-stages-of-an-engineering-career-54dac732fc74": 139138397222,
 	"https://github.com/go-chi/chi/tree/master":                                                         11157,
 }
 
-type mockedRepo struct {
-	sample map[string]int64
+var idToURL = map[int64]string{
+	139138397222: "https://medium.com/equify-tech/the-three-fundamental-stages-of-an-engineering-career-54dac732fc74",
+	11157:        "https://github.com/go-chi/chi/tree/master",
 }
 
-var mr = mockedRepo{sample}
+type mockedRepo struct{}
+
+var mr = mockedRepo{}
 
 func (m *mockedRepo) CreateURL(ctx context.Context, url string) (int64, error) {
-	i := m.sample[url]
-	if i == 0 {
-		return 0, errors.New("not found")
+	id, ok := urlToID[url]
+	if !ok {
+		return 0, sql.ErrNoRows
 	}
-	return i, nil
+	return id, nil
 }
 
 func (m *mockedRepo) GetURL(ctx context.Context, id int64) (string, error) {
-	return "http://foo.com/SluG", nil
+	url, ok := idToURL[id]
+	if !ok {
+		return "", sql.ErrNoRows
+	}
+	return url, nil
 }
 
 func TestSlug(t *testing.T) {
 
 	h := handler{&mr}
 
-	for url := range sample {
+	for url := range urlToID {
 		w := httptest.NewRecorder()
 		b := strings.NewReader(fmt.Sprintf("{\"long_url\":\"%s\"}", url))
 		req := httptest.NewRequest("POST", "http://example.com/foo", b)
 		h.Shorten(w, req)
 		resp := w.Result()
 		body, _ := io.ReadAll(resp.Body)
-		fmt.Println(resp.StatusCode)
+		assert.Equal(t, 201, resp.StatusCode)
 		fmt.Println(string(body))
 	}
 }
 
-//func TestRedirect(t *testing.T) {
-//
-//	h := handler{&mr}
-//
-//	for url := range sample {
-//		w := httptest.NewRecorder()
-//		b := strings.NewReader(fmt.Sprintf("{\"long_url\":\"%s\"}", url))
-//		req := httptest.NewRequest("POST", "http://example.com/foo", b)
-//		h.Shorten(w, req)
-//		resp := w.Result()
-//		body, _ := io.ReadAll(resp.Body)
-//		fmt.Println(resp.StatusCode)
-//		fmt.Println(string(body))
-//	}
-//}
+var testRedirect = []struct {
+	slug string
+	url  string
+}{
+	{
+		"2tx",
+		"https://github.com/go-chi/chi/tree/master",
+	},
+	{
+		"2RsIXB8",
+		"https://medium.com/equify-tech/the-three-fundamental-stages-of-an-engineering-career-54dac732fc74",
+	},
+}
+
+func TestRedirect(t *testing.T) {
+
+	h := handler{&mr}
+
+	for _, test := range testRedirect {
+
+		rc := chi.NewRouteContext()
+		rc.URLParams.Add("slug", test.slug)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "http://example.com/foo", nil)
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rc))
+		h.Slug(w, req)
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+		assert.Equal(t, 301, resp.StatusCode)
+		assert.Equal(t, test.url, resp.Header.Get("Location"))
+		fmt.Println(string(body))
+	}
+}
 
 var encodingTest = []struct {
 	id       int64
@@ -82,6 +108,10 @@ var encodingTest = []struct {
 	{
 		11157,
 		"2tx",
+	},
+	{
+		139138397222,
+		"2RsIXB8",
 	},
 }
 
