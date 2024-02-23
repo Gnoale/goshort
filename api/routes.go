@@ -30,32 +30,28 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 	// validate our url
 	_, err := url.ParseRequestURI(body.LongURL)
 	if err != nil {
-		w.Write([]byte("invalid URl"))
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("invalid URl"))
 		return
 	}
 	// insert in DB
 	// unique constraint on the url column
 	id, err := h.q.CreateURL(r.Context(), body.LongURL)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			w.WriteHeader(http.StatusConflict)
-		} else {
-			w.Write([]byte(err.Error()))
-			w.WriteHeader(http.StatusInternalServerError)
-		}
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	// encode the slug from our database ID
 	slug, err := encode(id)
 	if err != nil {
-		w.Write([]byte(err.Error()))
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	slugUrl := url.URL{
-		Scheme: r.URL.Scheme,
-		Host:   r.URL.Host,
+		Scheme: "http",
+		Host:   r.Host,
 		Path:   "api/v1/" + slug,
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -77,8 +73,8 @@ func (h *handler) Slug(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, sql.ErrNoRows) {
 			w.WriteHeader(http.StatusNotFound)
 		} else {
-			w.Write([]byte(err.Error()))
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 		}
 		return
 	}
